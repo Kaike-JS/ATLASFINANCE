@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas Finance — Diário de Bordo</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- ===== TELA DE LOGIN ===== -->
+    <div id="login-view" class="login-wrapper" role="main">
+        <div class="login-card" aria-label="Formulário de login">
+            <div class="logo-compass" aria-hidden="true">🧭</div>
+            <h1 class="login-title">Atlas Finance</h1>
+            <p class="login-subtitle">Identifique-se para acessar seu diário de bordo</p>
+
+            <form id="login-form" novalidate>
+                <div class="input-group">
+                    <label for="username">Tripulante (Usuário)</label>
+                    <input type="text" id="username" placeholder="Ex: CapitaoGancho" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Chave Secreta (Senha)</label>
+                    <input type="password" id="password" placeholder="Sua senha" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-submit">Embarcar</button>
+                <p class="switch-text">Não tem uma conta? <a href="cadastro.html">Cadastre-se aqui</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="app-view" class="hidden">
+        <header role="banner">
+            <div class="header-content">
+                <div class="header-titles">
+                    <div class="logo-compass" aria-hidden="true">🧭</div>
+                    <h1>Atlas Finance</h1>
+                    <p class="subtitle">Navegando com precisão</p>
+                </div>
+                <div class="user-controls">
+                    <span class="greeting">Bem-vindo, <strong id="display-user">Tripulante</strong></span>
+                    <button onclick="logout()" class="btn-logout" aria-label="Sair da conta">
+                        Desembarcar (Sair)
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="container" role="main">
+
+            <!-- Cards de Resumo -->
+            <div class="summary-cards" role="region" aria-label="Resumo financeiro">
+                <article class="card income">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Entradas</h3>
+                    <p id="total-income" aria-live="polite">R$ 0,00</p>
+                </article>
+                <article class="card expense">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Saídas</h3>
+                    <p id="total-expense" aria-live="polite">R$ 0,00</p>
+                </article>
+                <article class="card balance">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Saldo de Bordo</h3>
+                    <p id="total-balance" aria-live="polite">R$ 0,00</p>
+                </article>
+            </div>
+
+            <!-- Formulário + Gráfico -->
+            <div class="main-content">
+                <section class="form-section" aria-label="Registrar transação">
+                    <h2>Registar Rota</h2>
+                    <form id="transaction-form" novalidate>
+                        <div class="input-group">
+                            <label for="desc">Descrição</label>
+                            <input type="text" id="desc" placeholder="Ex: Provisões de Mercado" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="amount">Valor (R$)</label>
+                            <input type="number" id="amount" placeholder="0,00" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="type">Natureza</label>
+                            <select id="type" required>
+                                <option value="expense">🌊 Saída (Gasto / Despesa)</option>
+                                <option value="income">⚓ Entrada (Receita / Ganho)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="category">Categoria</label>
+                            <select id="category" required>
+                                <option value="Alimentação">Alimentação / Mantimentos</option>
+                                <option value="Transporte">Transporte / Combustível</option>
+                                <option value="Lazer">Lazer / Tripulação</option>
+                                <option value="Contas">Contas / Manutenção</option>
+                                <option value="Salário">Salário / Tesouro</option>
+                                <option value="Outros">Outros Destinos</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-submit">Lançar no Diário</button>
+                    </form>
+                </section>
+
+                <section class="dashboard-section" aria-label="Gráfico de gastos">
+                    <h2>Distribuição dos Gastos</h2>
+                    <div class="chart-container">
+                        <canvas id="expenseChart" aria-label="Gráfico de distribuição de gastos"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Histórico -->
+            <section class="history-section" aria-label="Histórico de transações">
+                <h2>Histórico de Navegabilidade</h2>
+                <div class="table-wrapper">
+                    <table id="transaction-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Descrição</th>
+                                <th scope="col">Categoria</th>
+                                <th scope="col">Valor</th>
+                                <th scope="col">Natureza</th>
+                                <th scope="col" style="text-align:center">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>

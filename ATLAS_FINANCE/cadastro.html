@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas Finance — Alistamento</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="login-wrapper" role="main">
+        <div class="login-card" style="border-top-color: #2a9d8f;" aria-label="Formulário de cadastro">
+
+            <div class="logo-compass" style="filter: hue-rotate(50deg);" aria-hidden="true">⚓</div>
+            <h1 class="login-title">Alistamento</h1>
+            <p class="login-subtitle">Crie suas credenciais para abrir um novo diário de bordo</p>
+
+            <form id="cadastro-form" novalidate>
+                <div class="input-group">
+                    <label for="username">Nome de Tripulante</label>
+                    <input type="text" id="username" placeholder="Ex: kaike_dev" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Chave Secreta (Senha)</label>
+                    <input type="password" id="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" required minlength="6">
+                </div>
+                <button type="submit" class="btn-submit">Registrar na Frota</button>
+                <p class="switch-text">Já possui registro? <a href="index.html">Voltar ao Porto (Login)</a></p>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="cadastro.js"></script>
+</body>
+</html>
