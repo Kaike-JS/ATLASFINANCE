@@ -15,15 +15,40 @@ import {
     showToast,
 } from './style.js';
 
+import {
+    generateSessionToken,
+    destroySessionToken,
+    isSessionValid,
+    startSessionWatchdog,
+    setupActivityRenewal,
+    getSessionRemainingFormatted,
+} from './sessionToken.js';
+
+import {
+    scanFields,
+    sanitizeString,
+    sanitizeText,
+    isValidEmail,
+    isValidAmount,
+    isWhitelisted,
+    checkLoginBlocked,
+    recordFailedAttempt,
+    resetLoginAttempts,
+    recordSubmitTimestamp,
+    isSubmitAllowed,
+    showLockoutFeedback,
+    showAttemptsWarning,
+    clearSecurityAlerts,
+} from './security.js';
+
 // ── Configuração Supabase ──
 const SUPABASE_URL = "https://agazyxktzrkoyrnxivab.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnYXp5eGt0enJrb3lybnhpdmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDU1NzcsImV4cCI6MjA5NTA4MTU3N30.5MZnLVPPTP7VLelU8OX-0cxl6mYz6ck1RoxVH3mPumg";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Inicialização do EmailJS (Substitua pelo seu Public Key do painel do EmailJS)
-emailjs.init({ publicKey: "SEU_PUBLIC_KEY_AQUI" });
-
-const btnReport = document.getElementById('btn-send-report');
+// ── Whitelists de valores permitidos nos campos SELECT ──
+const ALLOWED_TYPES      = ['income', 'expense'];
+const ALLOWED_CATEGORIES = ['Alimentação', 'Transporte', 'Lazer', 'Contas', 'Salário', 'Outros'];
 
 // ── Estado ──
 let currentUser = null;
@@ -50,8 +75,15 @@ setupRipple();
 
 async function checkSession() {
     const { data: { session } } = await _supabase.auth.getSession();
+
     if (session?.user) {
+        if (!isSessionValid()) {
+            console.warn('[Atlas Security] Token expirado no checkSession. Forçando logout.');
+            await _forceLogoutInternal();
+            return;
+        }
         currentUser = session.user;
+        _initSessionSystem();
         showAppScreen();
     }
 }
@@ -59,27 +91,152 @@ async function checkSession() {
 loginForm.addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    const userRaw = document.getElementById('username').value.trim();
-    const pass    = document.getElementById('password').value.trim();
-    const email   = `${userRaw.toLowerCase()}@atlas.com`;
+    const btnSubmit = loginForm.querySelector('.btn-submit');
+    const email     = document.getElementById('username').value.trim();
+    const pass      = document.getElementById('password').value.trim();
 
+    // ── 1. Verifica se o login está bloqueado por tentativas excessivas ──
+    const lockStatus = checkLoginBlocked();
+    if (lockStatus.blocked) {
+        showLockoutFeedback(lockStatus.remainingMs, btnSubmit);
+        return;
+    }
+
+    // ── 2. Anti-bot: delay mínimo entre submissões ──
+    if (!isSubmitAllowed()) {
+        showToast('Aguarde um momento antes de tentar novamente.', 'error');
+        return;
+    }
+    recordSubmitTimestamp();
+
+    // ── 3. Validação de formato de e-mail ──
+    if (!isValidEmail(email)) {
+        showToast('Formato de e-mail inválido.', 'error');
+        return;
+    }
+
+    // ── 4. Scan de SQL Injection e XSS nos campos ──
+    const scan = scanFields({ email, senha: pass });
+    if (!scan.safe) {
+        console.error(`[Atlas Security] Payload malicioso detectado no campo "${scan.field}" (${scan.type})`);
+        showToast('Entrada inválida detectada. Acesso negado.', 'error');
+        return;
+    }
+
+    // ── 5. Tentativa de login no Supabase ──
     const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
 
     if (!error && data.user) {
+        // Login OK — reseta contadores de segurança
+        resetLoginAttempts();
+        clearSecurityAlerts();
         currentUser = data.user;
+
+        const token = generateSessionToken();
+        console.info(`[Atlas Security] Login bem-sucedido. Token: ${token}`);
+
+        _initSessionSystem();
         showAppScreen();
     } else {
-        showToast('Usuário ou senha incorretos.', 'error');
+        // Login falhou — registra tentativa e exibe feedback
+        const result = recordFailedAttempt();
+
+        if (result.locked) {
+            showLockoutFeedback(result.lockoutMs, btnSubmit);
+            showToast(`Acesso bloqueado por ${Math.round(result.lockoutMs / 1000)}s.`, 'error');
+        } else {
+            showAttemptsWarning(result.attemptsLeft);
+            showToast('E-mail ou senha incorretos.', 'error');
+        }
     }
 });
 
-window.logout = async function () {
+function _initSessionSystem() {
+    startSessionWatchdog(async (reason) => {
+        console.warn('[Atlas Security] Sessão expirada:', reason);
+        await _forceLogoutInternal();
+    });
+    setupActivityRenewal();
+    _renderSessionTimer();
+}
+
+async function _forceLogoutInternal() {
+    destroySessionToken();
     await _supabase.auth.signOut();
-    currentUser = null;
+    currentUser    = null;
+    transactions   = [];
+    appView.classList.add('hidden');
+}
+
+window.logout = async function () {
+    destroySessionToken();
+    await _supabase.auth.signOut();
+    currentUser  = null;
     transactions = [];
+
+    const timerEl = document.getElementById('session-timer-display');
+    if (timerEl) timerEl.remove();
+
     appView.classList.add('hidden');
     loginView.classList.remove('hidden');
+    showToast('Você desembarcou com segurança.', 'info');
 };
+
+// ============================================================
+//  TIMER DE SESSÃO NO HEADER
+// ============================================================
+
+function _renderSessionTimer() {
+    const old = document.getElementById('session-timer-display');
+    if (old) old.remove();
+
+    const timerEl = document.createElement('div');
+    timerEl.id = 'session-timer-display';
+    timerEl.setAttribute('title', 'Tempo restante de sessão');
+    timerEl.style.cssText = `
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: rgba(255,255,255,0.55);
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: default;
+        user-select: none;
+    `;
+    timerEl.innerHTML = `<span style="opacity:0.7">⏱</span> <span id="session-timer-value">30:00</span>`;
+
+    const greeting = document.querySelector('.greeting');
+    if (greeting) {
+        greeting.style.display    = 'flex';
+        greeting.style.alignItems = 'center';
+        greeting.style.gap        = '10px';
+        greeting.appendChild(timerEl);
+    }
+
+    const valueEl = document.getElementById('session-timer-value');
+    const _update = () => {
+        if (!valueEl) return;
+        valueEl.textContent = getSessionRemainingFormatted();
+        const ms = parseInt(sessionStorage.getItem('atlas_session_expiry') || '0', 10) - Date.now();
+        timerEl.style.color = (ms <= 5 * 60_000 && ms > 0) ? '#e63946' : 'rgba(255,255,255,0.55)';
+    };
+    _update();
+    setInterval(_update, 1000);
+}
+
+// ============================================================
+//  GUARD DE SESSÃO
+// ============================================================
+
+function _requireValidSession() {
+    if (!isSessionValid()) {
+        showToast('Sessão expirada. Faça login novamente.', 'error');
+        _forceLogoutInternal();
+        throw new Error('SESSION_EXPIRED');
+    }
+}
 
 // ============================================================
 //  NAVEGAÇÃO DE TELAS
@@ -89,9 +246,10 @@ async function showAppScreen() {
     loginView.classList.add('hidden');
     appView.classList.remove('hidden');
 
-    displayUser.innerText = currentUser.email.split('@')[0];
+    // Exibe o nome — sanitizado para evitar XSS via metadados
+    const rawName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+    displayUser.innerText = sanitizeString(rawName);
 
-    // Efeitos visuais de entrada
     animateDashboardSections();
     highlightNewRow();
     setupButtonFeedback('transaction-form', 'Lançar no Diário');
@@ -101,10 +259,12 @@ async function showAppScreen() {
 }
 
 // ============================================================
-//  CRUD — Supabase
+//  CRUD — Supabase com validação e sanitização completas
 // ============================================================
 
 async function fetchTransactions() {
+    _requireValidSession();
+
     const { data, error } = await _supabase
         .from('transactions')
         .select('*')
@@ -115,7 +275,7 @@ async function fetchTransactions() {
         transactions = data || [];
         updateAppInterface();
     } else {
-        console.error('Erro ao buscar transações:', error.message);
+        console.error('[Atlas] Erro ao buscar transações:', error.message);
     }
 }
 
@@ -127,14 +287,54 @@ form.addEventListener('submit', async function (e) {
         return;
     }
 
- const newTransaction = {
-        user_id:  currentUser.id,
-        desc:     document.getElementById('desc').value,
-        amount:   parseFloat(document.getElementById('amount').value),
-        type:     document.getElementById('type').value,
-        category: document.getElementById('category').value,
-        // ADICIONE ESTA LINHA ABAIXO:
-        observation: document.getElementById('observation').value
+    try { _requireValidSession(); } catch { return; }
+
+    // ── Captura os valores brutos ──
+    const rawDesc  = document.getElementById('desc').value;
+    const rawAmt   = document.getElementById('amount').value;
+    const rawType  = document.getElementById('type').value;
+    const rawCat   = document.getElementById('category').value;
+    const rawObs   = document.getElementById('observation').value;
+
+    // ── 1. Scan de SQL Injection / XSS ──
+    const scan = scanFields({
+        descricao:    rawDesc,
+        observacao:   rawObs,
+    });
+    if (!scan.safe) {
+        showToast('Entrada inválida no campo "' + scan.field + '". Tente novamente.', 'error');
+        console.error(`[Atlas Security] ${scan.type} detectado no formulário de transação.`);
+        return;
+    }
+
+    // ── 2. Validação de whitelist nos campos SELECT ──
+    if (!isWhitelisted(rawType, ALLOWED_TYPES)) {
+        showToast('Tipo de transação inválido.', 'error');
+        return;
+    }
+    if (!isWhitelisted(rawCat, ALLOWED_CATEGORIES)) {
+        showToast('Categoria inválida.', 'error');
+        return;
+    }
+
+    // ── 3. Validação do valor numérico ──
+    if (!isValidAmount(rawAmt)) {
+        showToast('Valor inválido. Informe um número positivo.', 'error');
+        return;
+    }
+
+    // ── 4. Sanitização dos campos de texto livre ──
+    const safeDesc = sanitizeText(rawDesc, ' .,!?-\'');
+    const safeObs  = sanitizeText(rawObs,  ' .,!?-\'');
+
+    const newTransaction = {
+        user_id:     currentUser.id,
+        desc:        safeDesc,
+        amount:      parseFloat(parseFloat(rawAmt).toFixed(2)),
+        type:        rawType,
+        category:    rawCat,
+        observation: safeObs,
+        date:        new Date().toISOString(),
     };
 
     const { error } = await _supabase.from('transactions').insert([newTransaction]);
@@ -149,10 +349,19 @@ form.addEventListener('submit', async function (e) {
 });
 
 window.deleteTransaction = async function (id) {
+    try { _requireValidSession(); } catch { return; }
+
+    // ── Garante que o ID é um inteiro válido (evita injection via onclick) ──
+    const safeId = parseInt(id, 10);
+    if (isNaN(safeId) || safeId <= 0) {
+        showToast('ID de transação inválido.', 'error');
+        return;
+    }
+
     const { error } = await _supabase
         .from('transactions')
         .delete()
-        .eq('id', id);
+        .eq('id', safeId);
 
     if (!error) {
         showToast('Registro removido.', 'info');
@@ -163,7 +372,7 @@ window.deleteTransaction = async function (id) {
 };
 
 // ============================================================
-//  RENDERIZAÇÃO
+//  RENDERIZAÇÃO — com sanitização dos dados do banco
 // ============================================================
 
 const formatCurrency = (value) =>
@@ -179,17 +388,28 @@ function updateAppInterface() {
         if (t.type === 'income')  totalIncome  += t.amount;
         if (t.type === 'expense') totalExpense += t.amount;
 
+        const dataOrigem    = t.date || t.created_at;
+        const dataFormatada = dataOrigem ? new Date(dataOrigem).toLocaleDateString('pt-BR')                                    : '---';
+        const horaFormatada = dataOrigem ? new Date(dataOrigem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '---';
+
+        // ── Sanitiza dados vindos do banco antes de inserir no DOM ──
+        const safeDesc = sanitizeString(t.desc     || '');
+        const safeCat  = sanitizeString(t.category || '');
+        const safeObs  = sanitizeString(t.observation || '');
+        const safeType = isWhitelisted(t.type, ALLOWED_TYPES) ? t.type : 'expense';
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
-                <strong>${t.desc}</strong>
-                ${t.observation ? `<span class="transaction-obs">⚓ ${t.observation}</span>` : ''}
+                <strong>${safeDesc}</strong><br>
+                <small style="color:#888;">📅 ${dataFormatada} às ${horaFormatada}</small>
+                ${safeObs ? `<br><span class="transaction-obs" style="font-size:0.8rem;color:#2a9d8f;">⚓ ${safeObs}</span>` : ''}
             </td>
-            <td><span class="badge-category">${t.category}</span></td>
-            <td class="type-${t.type}">${t.type === 'expense' ? '−' : '+'}&nbsp;${formatCurrency(t.amount)}</td>
-            <td>${t.type === 'income' ? '⚓ Entrada' : '🌊 Saída'}</td>
+            <td><span class="badge-category">${safeCat}</span></td>
+            <td class="type-${safeType}">${safeType === 'expense' ? '−' : '+'}&nbsp;${formatCurrency(t.amount)}</td>
+            <td>${safeType === 'income' ? '⚓ Entrada' : '🌊 Saída'}</td>
             <td style="text-align:center;">
-                <button class="btn-delete" onclick="deleteTransaction(${t.id})" title="Excluir lançamento">
+                <button class="btn-delete" onclick="deleteTransaction(${parseInt(t.id, 10)})" title="Excluir lançamento">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -204,26 +424,23 @@ function updateAppInterface() {
     });
 
     const balance = totalIncome - totalExpense;
-
-    // Passa os valores brutos para o animador de contadores
     setRawValues(totalIncome, totalExpense, balance);
-
-    // Define os valores finais e dispara a animação
     incomeDisplay.textContent  = formatCurrency(totalIncome);
     expenseDisplay.textContent = formatCurrency(totalExpense);
     balanceDisplay.textContent = formatCurrency(balance);
     animateCounters();
-
     updateChart();
 }
 
 function updateChart() {
-    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const ctx      = document.getElementById('expenseChart').getContext('2d');
     const expenses = transactions.filter(t => t.type === 'expense');
 
     const categoryTotals = {};
     expenses.forEach(t => {
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+        // Sanitiza a categoria antes de usar como chave
+        const cat = isWhitelisted(t.category, ALLOWED_CATEGORIES) ? t.category : 'Outros';
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
     });
 
     const labels = Object.keys(categoryTotals);
@@ -262,6 +479,78 @@ function updateChart() {
         },
     });
 }
+
+// ============================================================
+//  RELATÓRIO MENSAL
+// ============================================================
+
+async function sendMonthlyReport() {
+    try { _requireValidSession(); } catch { return; }
+
+    if (!currentUser || transactions.length === 0) {
+        showToast('Nenhum dado para gerar o relatório.', 'error');
+        return;
+    }
+
+    const selectMonth       = document.getElementById('select-report-month');
+    const valorSelecionado  = selectMonth ? selectMonth.value : 'all';
+    const nomeMesSelecionado = selectMonth ? selectMonth.options[selectMonth.selectedIndex].text : 'Mensal';
+
+    let transacoesFiltradas = transactions;
+
+    if (valorSelecionado !== 'all') {
+        const mesIndex = parseInt(valorSelecionado, 10);
+        if (isNaN(mesIndex) || mesIndex < 0 || mesIndex > 11) {
+            showToast('Mês inválido selecionado.', 'error');
+            return;
+        }
+        transacoesFiltradas = transactions.filter(t => {
+            const dataOrigem = t.date || t.created_at;
+            if (!dataOrigem) return false;
+            return new Date(dataOrigem).getMonth() === mesIndex;
+        });
+    }
+
+    if (transacoesFiltradas.length === 0) {
+        showToast(`Nenhum lançamento encontrado para: ${nomeMesSelecionado}.`, 'error');
+        return;
+    }
+
+    const btnReport    = document.getElementById('btn-send-report');
+    const originalText = btnReport.innerText;
+    btnReport.innerText = '⏳ Enviando Rota...';
+    btnReport.disabled  = true;
+
+    try {
+        const URL_BACKEND = 'http://localhost:8000/report.php';
+
+        const response = await fetch(URL_BACKEND, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email:        currentUser.email,
+                transactions: transacoesFiltradas,
+                monthName:    nomeMesSelecionado,
+            }),
+        });
+
+        if (response.ok) {
+            showToast(`Relatório (${nomeMesSelecionado}) enviado com sucesso ao seu e-mail!`, 'success');
+        } else {
+            const textoErro = await response.text();
+            console.error('=== ERRO DO PHP ===', textoErro);
+            throw new Error('Falha no servidor');
+        }
+    } catch (err) {
+        console.error('[Atlas] Erro no relatório:', err);
+        showToast('Falha ao enviar relatório por e-mail.', 'error');
+    } finally {
+        btnReport.innerText = originalText;
+        btnReport.disabled  = false;
+    }
+}
+
+document.getElementById('btn-send-report').addEventListener('click', sendMonthlyReport);
 
 // ── Bootstrap ──
 checkSession();
