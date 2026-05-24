@@ -140,6 +140,97 @@ body {
 }
 
 
+/* ============================================================
+   AÇÕES DO HEADER (BOTÃO DE RELATÓRIO MENSAL)
+   ============================================================ */
+
+.user-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* Botão de Relatório Premium Dourado/Latão */
+.btn-report {
+    background: transparent;
+    border: 1px solid #c5a059; /* Cor Dourado/Latão do Atlas */
+    color: #c5a059;
+    padding: 0.5rem 1.2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.25s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-report:hover {
+    background: linear-gradient(135deg, #c5a059 0%, #b38f46 100%);
+    color: #0a192f; /* Fundo escuro do dashboard para contraste */
+    box-shadow: 0 4px 15px rgba(197, 160, 89, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-report:active {
+    transform: translateY(0);
+}
+
+.btn-report:disabled {
+    border-color: #4a5568;
+    color: #a0aec0;
+    background: transparent;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Responsividade para telas menores */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .user-controls {
+        align-items: center;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+.report-select {
+    background-color: #0a192f;
+    color: #ffffff;
+    border: 1px solid #2a9d8f;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.report-select:focus {
+    border-color: #e9c46a; /* Realce dourado ao focar */
+}
+
 
 /* ── Utilities ── */
 .hidden { display: none !important; }
