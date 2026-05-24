@@ -89,28 +89,30 @@ document.head.appendChild(style);
 // ── Cadastro ──
 const cadastroForm = document.getElementById('cadastro-form');
 
+// Procure pelo evento de submit do formulário de CADASTRO
 cadastroForm.addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    const btn   = cadastroForm.querySelector('.btn-submit');
-    const userRaw = document.getElementById('username').value.trim();
-    const pass    = document.getElementById('password').value.trim();
-    const email   = `${userRaw.toLowerCase()}@atlas.com`;
+    // 1. Captura os três campos agora
+    const nome  = document.getElementById('cadastro-nome').value.trim();
+    const email = document.getElementById('cadastro-email').value.trim(); 
+    const pass  = document.getElementById('password').value.trim();
 
-    btn.textContent = '⚓ Registrando...';
-    btn.style.opacity = '0.7';
-    btn.disabled = true;
+    // 2. Envia para o Supabase com os metadados (options)
+    const { data, error } = await _supabase.auth.signUp({ 
+        email: email, 
+        password: pass,
+        options: {
+            data: {
+                full_name: nome // O Supabase salva isso automaticamente nos metadados do usuário
+            }
+        }
+    });
 
-    const { data, error } = await _supabase.auth.signUp({ email, password: pass });
-
-    btn.textContent = 'Registrar na Frota';
-    btn.style.opacity = '';
-    btn.disabled = false;
-
-    if (!error && data.user) {
-        showToast('Tripulante registrado! Redirecionando...', 'success');
-        setTimeout(() => { window.location.href = 'index.html'; }, 1800);
+    if (!error) {
+        showToast('Inscrição realizada! Preparando diário de bordo...', 'success');
+        setTimeout(() => { window.location.href = 'index.html'; }, 2000);
     } else {
-        showToast('Erro ao criar conta: ' + (error?.message || 'Tente novamente.'), 'error');
+        showToast('Erro ao criar conta: ' + error.message, 'error');
     }
 });
