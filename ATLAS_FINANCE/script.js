@@ -433,7 +433,7 @@ function updateAppInterface() {
 }
 
 function updateChart() {
-    const ctx      = document.getElementById('expenseChart').getContext('2d');
+    const ctx = document.getElementById('expenseChart').getContext('2d');
     const expenses = transactions.filter(t => t.type === 'expense');
 
     const categoryTotals = {};
@@ -521,25 +521,60 @@ async function sendMonthlyReport() {
     btnReport.innerText = '⏳ Enviando Rota...';
     btnReport.disabled  = true;
 
+    // ── CONSTRUÇÃO DO HTML DO CORPO DO E-MAIL DIRETO NO FRONT-END ──
+    let htmlTableRows = "";
+    transacoesFiltradas.forEach(t => {
+        const valor = t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const natureza = (t.type === 'income') ? '⚓ Entrada' : '🌊 Saída';
+        const obs = t.observation ? `<br><small style="color:#666;">obs: ${t.observation}</small>` : "";
+
+        htmlTableRows += `
+            <tr>
+                <td style="padding:10px; border-bottom:1px solid #ddd;"><strong>${t.desc}</strong>${obs}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${t.category}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${natureza}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; font-weight:bold;">${valor}</td>
+            </tr>`;
+    });
+
+    const emailBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #2a9d8f; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #0a192f; border-bottom: 2px solid #2a9d8f; padding-bottom: 10px;">⚓ Atlas Finance — Diário de Bordo de ${nomeMesSelecionado}</h2>
+            <p>Olá, comandante!</p>
+            <p>Aqui está o resumo financeiro das suas últimas rotas navegadas:</p>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <thead>
+                    <tr style="background-color: #2a9d8f; color: white;">
+                        <th style="padding: 10px; text-align: left;">Descrição</th>
+                        <th style="padding: 10px; text-align: left;">Categoria</th>
+                        <th style="padding: 10px; text-align: left;">Natureza</th>
+                        <th style="padding: 10px; text-align: left;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>${htmlTableRows}</tbody>
+            </table>
+        </div>`;
+
     try {
         const URL_BACKEND = 'https://api-atlasfinance.infinityfree.me/report.php';
 
+        // ── MONTA O FORMDATA PARA BURLAR A TRAVA DE PREFLIGHT (CORS) ──
+        const formData = new FormData();
+        formData.append('email', currentUser.email);
+        formData.append('mes', nomeMesSelecionado);
+        formData.append('html', emailBody);
+
         const response = await fetch(URL_BACKEND, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email:        currentUser.email,
-                transactions: transacoesFiltradas,
-                monthName:    nomeMesSelecionado,
-            }),
+            body: formData // Enviado como formulário padrão
         });
 
-        if (response.ok) {
+        const result = await response.json();
+
+        if (response.ok && result.success) {
             showToast(`Relatório (${nomeMesSelecionado}) enviado com sucesso ao seu e-mail!`, 'success');
         } else {
-            const textoErro = await response.text();
-            console.error('=== ERRO DO PHP ===', textoErro);
-            throw new Error('Falha no servidor');
+            throw new Error(result.message || 'Falha no servidor PHP');
         }
     } catch (err) {
         console.error('[Atlas] Erro no relatório:', err);
