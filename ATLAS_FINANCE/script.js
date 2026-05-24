@@ -556,7 +556,7 @@ async function sendMonthlyReport() {
         </div>`;
 
     try {
-        const URL_BACKEND = 'https://api-atlasfinance.infinityfree.me/report.php';
+        const URL_BACKEND = 'https://corsproxy.io/?' + encodeURIComponent('https://api-atlasfinance.infinityfree.me/report.php');
 
         // ── MONTA O FORMDATA PARA BURLAR A TRAVA DE PREFLIGHT (CORS) ──
         const formData = new FormData();
