@@ -26,15 +26,22 @@
             <h1 class="login-title">Alistamento</h1>
             <p class="login-subtitle">Crie suas credenciais para abrir um novo diário de bordo</p>
 
-            <form id="cadastro-form" novalidate>
+            <form id="cadastro-form">
                 <div class="input-group">
-                    <label for="username">Nome de Tripulante</label>
-                    <input type="text" id="username" placeholder="Ex: kaike_dev" autocomplete="username" required>
+                    <label for="cadastro-nome">Seu Nome (Como quer ser chamado)</label>
+                    <input type="text" id="cadastro-nome" placeholder="Ex: Capitão Kaike" required>
                 </div>
+
+                <div class="input-group">
+                    <label for="cadastro-email">Seu E-mail Real</label>
+                    <input type="email" id="cadastro-email" placeholder="exemplo@gmail.com" required>
+                </div>
+                
                 <div class="input-group">
                     <label for="password">Chave Secreta (Senha)</label>
                     <input type="password" id="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" required minlength="6">
                 </div>
+                
                 <button type="submit" class="btn-submit">Registrar na Frota</button>
                 <p class="switch-text">Já possui registro? <a href="index.html">Voltar ao Porto (Login)</a></p>
             </form>
@@ -44,18 +51,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="cadastro.js"></script>
 
-
-<script>
+    <script>
         window.addEventListener('load', () => {
-            // Atraso aumentado para 3000ms (3 segundos completos) para exibir a animação com calma
             setTimeout(() => {
                 const preloader = document.getElementById('preloader');
                 if (preloader) {
                     preloader.classList.add('preloader-hidden');
-                    // Aguarda o fade-out do CSS terminar (600ms) antes de apagar o elemento da tela
                     setTimeout(() => preloader.remove(), 600);
                 }
-            }, 3000); // <--- A MÁGICA DO TEMPO ACONTECE AQUI
+            }, 3000);
         });
     </script>
 </body>
