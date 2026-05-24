@@ -522,7 +522,7 @@ async function sendMonthlyReport() {
     btnReport.disabled  = true;
 
     try {
-        const URL_BACKEND = 'http://localhost:8000/report.php';
+        const URL_BACKEND = 'https://api-atlasfinance.infinityfree.me/report.php';
 
         const response = await fetch(URL_BACKEND, {
             method: 'POST',
