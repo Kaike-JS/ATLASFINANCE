@@ -12,6 +12,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div id="preloader">
+        <div class="preloader-content">
+            <div class="logo-compass preloader-icon" style="font-size: 3rem;">🧭</div>
+            <h1 class="shimmer-text">ATLAS FINANCE</h1>
+        </div>
+    </div>
 
     <div class="login-wrapper" role="main">
         <div class="login-card" style="border-top-color: #2a9d8f;" aria-label="Formulário de cadastro">
@@ -37,5 +43,20 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="cadastro.js"></script>
+
+
+<script>
+        window.addEventListener('load', () => {
+            // Atraso aumentado para 3000ms (3 segundos completos) para exibir a animação com calma
+            setTimeout(() => {
+                const preloader = document.getElementById('preloader');
+                if (preloader) {
+                    preloader.classList.add('preloader-hidden');
+                    // Aguarda o fade-out do CSS terminar (600ms) antes de apagar o elemento da tela
+                    setTimeout(() => preloader.remove(), 600);
+                }
+            }, 3000); // <--- A MÁGICA DO TEMPO ACONTECE AQUI
+        });
+    </script>
 </body>
 </html>
