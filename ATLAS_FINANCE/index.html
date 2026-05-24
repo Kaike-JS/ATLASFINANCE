@@ -11,6 +11,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Pré-carrega os módulos ES para eliminar latência no primeiro import -->
+    <link rel="modulepreload" href="sessionToken.js">
+    <link rel="modulepreload" href="style.js">
 </head>
 <body>
     <div id="preloader">
@@ -20,7 +24,6 @@
         </div>
     </div>
 
-    <!-- ===== TELA DE LOGIN ===== -->
     <div id="login-view" class="login-wrapper" role="main">
         <div class="login-card" aria-label="Formulário de login">
             <div class="logo-compass" aria-hidden="true">🧭</div>
@@ -29,8 +32,8 @@
 
             <form id="login-form" novalidate>
                 <div class="input-group">
-                    <label for="username">Tripulante (Usuário)</label>
-                    <input type="text" id="username" placeholder="Ex: CapitaoGancho" autocomplete="username" required>
+                    <label for="username">E-mail do Tripulante</label>
+                    <input type="email" id="username" placeholder="seu-email@exemplo.com" autocomplete="email" required>
                 </div>
                 <div class="input-group">
                     <label for="password">Chave Secreta (Senha)</label>
@@ -42,7 +45,6 @@
         </div>
     </div>
 
-    <!-- ===== DASHBOARD ===== -->
     <div id="app-view" class="hidden">
         <header role="banner">
             <div class="header-content">
@@ -53,16 +55,37 @@
                 </div>
                 <div class="user-controls">
                     <span class="greeting">Bem-vindo, <strong id="display-user">Tripulante</strong></span>
-                    <button onclick="logout()" class="btn-logout" aria-label="Sair da conta">
-                        Desembarcar (Sair)
-                    </button>
+                    <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+                        
+                        <select id="select-report-month" class="report-select" aria-label="Selecionar mês do relatório" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #2a9d8f; background-color: #0a192f; color: #fff; font-family: 'Montserrat', sans-serif; cursor: pointer;">
+                            <option value="all">📅 Todo o Histórico</option>
+                            <option value="0">Janeiro</option>
+                            <option value="1">Fevereiro</option>
+                            <option value="2">Março</option>
+                            <option value="3">Abril</option>
+                            <option value="4">Maio</option>
+                            <option value="5">Junho</option>
+                            <option value="6">Julho</option>
+                            <option value="7">Agosto</option>
+                            <option value="8">Setembro</option>
+                            <option value="9">Outubro</option>
+                            <option value="10">Novembro</option>
+                            <option value="11">Dezembro</option>
+                        </select>
+
+                        <button id="btn-send-report" class="btn-report" aria-label="Enviar relatório mensal">
+                            ⚓ Enviar Diário
+                        </button>
+                        
+                        <button onclick="logout()" class="btn-logout" aria-label="Sair da conta">
+                            Desembarcar (Sair)
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
         <main class="container" role="main">
-
-            <!-- Cards de Resumo -->
             <div class="summary-cards" role="region" aria-label="Resumo financeiro">
                 <article class="card income">
                     <div class="card-indicator" aria-hidden="true"></div>
@@ -81,10 +104,9 @@
                 </article>
             </div>
 
-            <!-- Formulário + Gráfico -->
             <div class="main-content">
                 <section class="form-section" aria-label="Registrar transação">
-                    <h2>Registar Rota</h2>
+                    <h2>Registrar Rota</h2>
                     <form id="transaction-form" novalidate>
                         <div class="input-group">
                             <label for="desc">Descrição</label>
@@ -101,7 +123,7 @@
                                 <option value="income">⚓ Entrada (Receita / Ganho)</option>
                             </select>
                         </div>
-                       <div class="input-group">
+                        <div class="input-group">
                             <label for="category">Categoria</label>
                             <select id="category" required>
                                 <option value="Alimentação">Alimentação / Mantimentos</option>
@@ -112,7 +134,6 @@
                                 <option value="Outros">Outros Destinos</option>
                             </select>
                         </div>
-                        
                         <div class="input-group">
                             <label for="observation">Detalhes da Transação (Opcional)</label>
                             <textarea id="observation" placeholder="Ex: Compras feitas para a manutenção da frota" rows="2"></textarea>
@@ -130,7 +151,6 @@
                 </section>
             </div>
 
-            <!-- Histórico -->
             <section class="history-section" aria-label="Histórico de transações">
                 <h2>Histórico de Navegabilidade</h2>
                 <div class="table-wrapper">
@@ -148,32 +168,26 @@
                     </table>
                 </div>
             </section>
-
         </main>
     </div>
 
-
-
-
-
-
-
-    
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!--
+        script.js importa sessionToken.js e style.js como ES Modules.
+        O arquivo sessionToken.js deve estar na mesma pasta que script.js.
+    -->
     <script type="module" src="script.js"></script>
 
-<script>
+    <script>
         window.addEventListener('load', () => {
-            // Atraso aumentado para 3000ms (3 segundos completos) para exibir a animação com calma
             setTimeout(() => {
                 const preloader = document.getElementById('preloader');
                 if (preloader) {
                     preloader.classList.add('preloader-hidden');
-                    // Aguarda o fade-out do CSS terminar (600ms) antes de apagar o elemento da tela
                     setTimeout(() => preloader.remove(), 600);
                 }
-            }, 3000); // <--- A MÁGICA DO TEMPO ACONTECE AQUI
+            }, 3000);
         });
     </script>
 </body>
