@@ -328,14 +328,14 @@ form.addEventListener('submit', async function (e) {
     const safeObs  = sanitizeText(rawObs,  ' .,!?-\'');
 
     const newTransaction = {
-        user_id:     currentUser.id,
-        desc:        safeDesc,
-        amount:      parseFloat(parseFloat(rawAmt).toFixed(2)),
-        type:        rawType,
-        category:    rawCat,
-        observation: safeObs,
-        date:        new Date().toISOString(),
-    };
+    user_id:     currentUser.id,
+    desc:        safeDesc,
+    amount:      parseFloat(parseFloat(rawAmt).toFixed(2)),
+    type:        rawType,
+    category:    rawCat,
+    observation: safeObs
+    // 💡 Remova a linha 'date: new Date().toISOString(),' daqui
+};
 
     const { error } = await _supabase.from('transactions').insert([newTransaction]);
 
