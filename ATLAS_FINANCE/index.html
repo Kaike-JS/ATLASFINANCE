@@ -13,6 +13,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <div id="preloader">
+        <div class="preloader-content">
+            <div class="logo-compass preloader-icon" style="font-size: 3rem;">🧭</div>
+            <h1 class="shimmer-text">ATLAS FINANCE</h1>
+        </div>
+    </div>
 
     <!-- ===== TELA DE LOGIN ===== -->
     <div id="login-view" class="login-wrapper" role="main">
@@ -95,7 +101,7 @@
                                 <option value="income">⚓ Entrada (Receita / Ganho)</option>
                             </select>
                         </div>
-                        <div class="input-group">
+                       <div class="input-group">
                             <label for="category">Categoria</label>
                             <select id="category" required>
                                 <option value="Alimentação">Alimentação / Mantimentos</option>
@@ -106,6 +112,12 @@
                                 <option value="Outros">Outros Destinos</option>
                             </select>
                         </div>
+                        
+                        <div class="input-group">
+                            <label for="observation">Detalhes da Transação (Opcional)</label>
+                            <textarea id="observation" placeholder="Ex: Compras feitas para a manutenção da frota" rows="2"></textarea>
+                        </div>
+
                         <button type="submit" class="btn-submit">Lançar no Diário</button>
                     </form>
                 </section>
@@ -140,7 +152,29 @@
         </main>
     </div>
 
+
+
+
+
+
+
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="script.js"></script>
+
+<script>
+        window.addEventListener('load', () => {
+            // Atraso aumentado para 3000ms (3 segundos completos) para exibir a animação com calma
+            setTimeout(() => {
+                const preloader = document.getElementById('preloader');
+                if (preloader) {
+                    preloader.classList.add('preloader-hidden');
+                    // Aguarda o fade-out do CSS terminar (600ms) antes de apagar o elemento da tela
+                    setTimeout(() => preloader.remove(), 600);
+                }
+            }, 3000); // <--- A MÁGICA DO TEMPO ACONTECE AQUI
+        });
+    </script>
 </body>
 </html>
