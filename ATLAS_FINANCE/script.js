@@ -20,6 +20,11 @@ const SUPABASE_URL = "https://agazyxktzrkoyrnxivab.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnYXp5eGt0enJrb3lybnhpdmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDU1NzcsImV4cCI6MjA5NTA4MTU3N30.5MZnLVPPTP7VLelU8OX-0cxl6mYz6ck1RoxVH3mPumg";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Inicialização do EmailJS (Substitua pelo seu Public Key do painel do EmailJS)
+emailjs.init({ publicKey: "SEU_PUBLIC_KEY_AQUI" });
+
+const btnReport = document.getElementById('btn-send-report');
+
 // ── Estado ──
 let currentUser = null;
 let transactions = [];
@@ -122,12 +127,14 @@ form.addEventListener('submit', async function (e) {
         return;
     }
 
-    const newTransaction = {
+ const newTransaction = {
         user_id:  currentUser.id,
         desc:     document.getElementById('desc').value,
         amount:   parseFloat(document.getElementById('amount').value),
         type:     document.getElementById('type').value,
         category: document.getElementById('category').value,
+        // ADICIONE ESTA LINHA ABAIXO:
+        observation: document.getElementById('observation').value
     };
 
     const { error } = await _supabase.from('transactions').insert([newTransaction]);
@@ -174,7 +181,10 @@ function updateAppInterface() {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><strong>${t.desc}</strong></td>
+            <td>
+                <strong>${t.desc}</strong>
+                ${t.observation ? `<span class="transaction-obs">⚓ ${t.observation}</span>` : ''}
+            </td>
             <td><span class="badge-category">${t.category}</span></td>
             <td class="type-${t.type}">${t.type === 'expense' ? '−' : '+'}&nbsp;${formatCurrency(t.amount)}</td>
             <td>${t.type === 'income' ? '⚓ Entrada' : '🌊 Saída'}</td>
