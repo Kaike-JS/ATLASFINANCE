@@ -5,13 +5,6 @@
 //  Exportação de Excel via SheetJS.
 // ============================================================
 
-// ============================================================
-//  ATLAS FINANCE — script.js  (v2 — EmailJS + PDF + Excel)
-//  Lógica de negócio, autenticação e CRUD com Supabase.
-//  Relatório agora gera PDF com gráficos e envia via EmailJS.
-//  Exportação de Excel via SheetJS.
-// ============================================================
-
 import {
     initDarkMode,
     renderTrendChart,
@@ -25,6 +18,10 @@ import {
     injectGoalsPanel,
     enhanceTableRows,
     getBudgets,
+    initAmountMask,
+    getRawAmountValue,
+    initMobileUX,
+    initOnboarding
 } from './features.js';
 
 import {
@@ -298,6 +295,11 @@ async function showAppScreen() {
     highlightNewRow();
     setupButtonFeedback('transaction-form', 'Lançar no Diário');
 
+    // ── Inicializações Mobile, Máscaras de Entrada e Onboarding Guiado ──
+    initAmountMask();
+    initMobileUX();
+    initOnboarding();
+
     // ── Botão de importar CSV no header ──
     injectCSVImportButton();
 
@@ -541,8 +543,6 @@ form.addEventListener('submit', async function (e) {
                 status === 'pending'
                     ? nextDueDate.toISOString().split('T')[0]
                     : new Date().toISOString().split('T')[0],
-            // 'date' removido: a coluna não existe na tabela.
-            // O Supabase gera 'created_at' automaticamente (timestampz).
         });
     }
 
@@ -1540,19 +1540,6 @@ async function sendMonthlyReport() {
         const balance = totalIncome - totalExpense;
 
         // ── 3. Envia via EmailJS ──
-        // Certifique-se de que o template EmailJS possui as variáveis:
-        //   {{to_email}}, {{user_name}}, {{mes}}, {{total_income}},
-        //   {{total_expense}}, {{balance}}, {{transaction_count}}, {{pdf_attachment}}
-        //
-        // ATENÇÃO: A maioria dos planos gratuitos do EmailJS NÃO suporta
-        // anexos binários via API JS. Para enviar o PDF como anexo, você precisa:
-        //   - Plano pago do EmailJS, OU
-        //   - Usar um backend (ex: Supabase Edge Function) que aceite o base64
-        //     e envie com um provedor que suporte anexos.
-        //
-        // Como fallback, o template pode receber um link de download gerado
-        // localmente (Object URL). Para produção, use a abordagem do backend.
-
         btnReport.innerText = '📧 Enviando...';
 
         await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
@@ -1636,6 +1623,7 @@ window.downloadReportPDF = async function () {
 };
 
 document.getElementById('btn-send-report').addEventListener('click', sendMonthlyReport);
+
 // ============================================================
 //  LÓGICA DE DATAS, PARCELAS E ALERTAS
 // ============================================================
@@ -1650,8 +1638,6 @@ window.toggleInstallmentField = function() {
     const isInstallment = document.getElementById('recurrence').value === 'installment';
     document.getElementById('installment-group').style.display = isInstallment ? 'flex' : 'none';
 };
-
-// Listener de submit único para o formulário de transações — ver bloco acima (linha ~345).
 
 // ── SISTEMA DE VERIFICAÇÃO E ALERTA (15 DIAS) ──
 function checkUpcomingDebts(allTransactions) {
@@ -1717,7 +1703,6 @@ function checkUpcomingDebts(allTransactions) {
 async function markAsPaid(transactionId) {
     console.log("Tentando pagar a transação:", transactionId);
     try {
-        // Confirme se no seu script a variável se chama _supabase ou supabase
         const { error } = await _supabase
             .from('transactions')
             .update({ status: 'paid' })
@@ -1755,9 +1740,9 @@ async function deleteTransaction(transactionId) {
     }
 }
 
-// ✨ A MÁGICA: Registra no window para o caso de algum HTML externo precisar,
-// mas mantém o nome livre para ser usado direto dentro do script.js!
+// ✨ A MÁGICA: Registra no window para o caso de algum HTML externo precisar
 window.markAsPaid = markAsPaid;
 window.deleteTransaction = deleteTransaction;
+
 // ── Bootstrap ──
 checkSession();
