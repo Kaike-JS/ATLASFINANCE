@@ -426,7 +426,7 @@ form.addEventListener('submit', async function (e) {
     }
 
     const rawDesc = document.getElementById('desc').value.trim();
-    const rawAmt = parseFloat(document.getElementById('amount').value);
+    const rawAmt = getRawAmountValue();
     const rawType = document.getElementById('type').value;
     const rawCat = document.getElementById('category').value;
     const rawObs = document.getElementById('observation').value.trim();
