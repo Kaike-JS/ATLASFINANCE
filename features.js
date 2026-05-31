@@ -1575,3 +1575,258 @@ export function enhanceTableRows() {
     `;
     document.head.appendChild(style);
 }
+
+// ============================================================
+//  11. MÁSCARA DE INPUT MONETÁRIO (BRL Currency Mask)
+// ============================================================
+
+export function initAmountMask() {
+    const amountInput = document.getElementById('amount');
+    if (!amountInput) return;
+
+    // Altera para texto para suportar formatação visual sem travar o cursor
+    amountInput.type = 'text';
+    amountInput.placeholder = 'R$ 0,00';
+
+    amountInput.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/\D/g, '');
+        if (!value) {
+            e.target.value = '';
+            return;
+        }
+        
+        // Formata como moeda brasileira centavo por centavo
+        value = (parseInt(value) / 100).toFixed(2);
+        let parts = value.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        
+        e.target.value = `R$ ${parts.join(',')}`;
+    });
+}
+
+// Auxiliar para ler o valor limpo antes de enviar ao Supabase
+export function getRawAmountValue() {
+    const amountInput = document.getElementById('amount');
+    if (!amountInput) return 0;
+    const cleanStr = amountInput.value.replace(/[R$\s.]/g, '').replace(',', '.');
+    return parseFloat(cleanStr) || 0;
+}
+
+// ============================================================
+//  12. UX MOBILE AVANÇADA (Responsive Drawer & Action Buttons)
+// ============================================================
+
+export function initMobileUX() {
+    if (document.getElementById('atlas-mobile-ux-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'atlas-mobile-ux-styles';
+    style.textContent = `
+        @media (max-width: 768px) {
+            body { padding-bottom: 80px; }
+            .main-content { display: flex; flex-direction: column; gap: 1.5rem; }
+            
+            /* Transformação do formulário em um Drawer de deslizar inferior */
+            .form-section {
+                position: fixed !important; bottom: 0; left: 0; right: 0;
+                background: var(--glass-bg, rgba(14, 28, 50, 0.98)) !important;
+                z-index: 2000 !important; max-height: 85vh; overflow-y: auto;
+                border-radius: 24px 24px 0 0 !important;
+                border: 1px solid var(--glass-border) !important;
+                border-top: 4px solid #c5a059 !important;
+                transform: translateY(100%);
+                transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) !important;
+                box-shadow: 0 -12px 40px rgba(0,0,0,0.6) !important;
+                padding: 1.5rem !important; margin: 0 !important;
+            }
+            .form-section.mobile-open { transform: translateY(0); }
+            
+            /* Barra de arrastar superior do Drawer */
+            .drawer-close-bar {
+                width: 45px; height: 5px; background: rgba(255,255,255,0.25);
+                border-radius: 10px; margin: -0.5rem auto 1.2rem auto; cursor: pointer;
+                display: block !important;
+            }
+            
+            /* Floating Action Button (FAB) para disparar o formulário */
+            .fab-add-route {
+                display: flex !important; position: fixed; bottom: 1.5rem; right: 1.5rem;
+                width: 58px; height: 58px; background: linear-gradient(135deg, #c5a059, #b38f46);
+                border-radius: 50%; color: #0a192f; font-size: 1.6rem; justify-content: center;
+                align-items: center; cursor: pointer; z-index: 1999; 
+                box-shadow: 0 6px 20px rgba(197,160,89,0.4); border: none;
+                transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .fab-add-route:active { transform: scale(0.9) rotate(90deg); }
+            
+            /* Melhorias de toque geral */
+            input, select, textarea, button { min-height: 44px; font-size: 16px !important; }
+        }
+        .fab-add-route, .drawer-close-bar { display: none; }
+    `;
+    document.head.appendChild(style);
+
+    const formSection = document.querySelector('.form-section');
+    if (!formSection) return;
+
+    // Injeta Barra Superior de Fechamento no Drawer
+    if (!document.querySelector('.drawer-close-bar')) {
+        const closeBar = document.createElement('div');
+        closeBar.className = 'drawer-close-bar';
+        formSection.insertBefore(closeBar, formSection.firstChild);
+        closeBar.addEventListener('click', () => formSection.classList.remove('mobile-open'));
+    }
+
+    // Injeta o Floating Action Button (FAB)
+    if (!document.querySelector('.fab-add-route')) {
+        const fab = document.createElement('button');
+        fab.className = 'fab-add-route';
+        fab.innerHTML = '➕';
+        fab.setAttribute('aria-label', 'Registrar Nova Rota');
+        document.body.appendChild(fab);
+
+        fab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            formSection.classList.add('mobile-open');
+            document.getElementById('desc')?.focus();
+        });
+
+        // Fecha o Drawer ao clicar fora dele
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && formSection.classList.contains('mobile-open')) {
+                if (!formSection.contains(e.target) && e.target !== fab) {
+                    formSection.classList.remove('mobile-open');
+                }
+            }
+        });
+    }
+}
+
+// ============================================================
+//  13. SISTEMA DE ONBOARDING AVANÇADO (5 Passos Guiados)
+// ============================================================
+
+export function initOnboarding() {
+    if (localStorage.getItem('atlas_onboarding_completed') === 'true') return;
+    
+    // Dispara automaticamente após a remoção do preloader original do sistema
+    setTimeout(() => {
+        startGuidedTour();
+    }, 3800);
+}
+
+function startGuidedTour() {
+    const steps = [
+        {
+            title: "🧭 Bem-vindo a Bordo!",
+            text: "Este é o seu Atlas Finance. Uma plataforma de alta precisão para gerenciar suas rotas financeiras corporativas e pessoais com segurança criptográfica.",
+            target: "header"
+        },
+        {
+            title: "📈 Painel de Indicadores",
+            text: "Aqui você tem o controle absoluto sobre suas Entradas, Saídas e o Saldo de Bordo líquido, incluindo previsões automáticas para lançamentos pendentes.",
+            target: ".summary-cards"
+        },
+        {
+            title: "⚓ Lance Novas Rotas",
+            text: "Utilize este painel inteligente para registrar fluxos financeiros. No mobile, você pode abrir este formulário a qualquer momento usando o botão flutuante (+).",
+            target: ".form-section"
+        },
+        {
+            title: "🎯 Metas e Orçamentos Dinâmicos",
+            text: "Defina tetos de gastos por categoria e objetivos de economia de longo prazo. O sistema emitirá alertas visuais caso você se aproxime dos limites configurados.",
+            target: "#budget-panel"
+        },
+        {
+            title: "📥 Inteligência de Dados",
+            text: "Importe extratos de qualquer banco via arquivos CSV na barra superior e faça conciliações imediatas, além de exportar relatórios consolidados em PDF e Excel.",
+            target: ".header-actions"
+        }
+    ];
+
+    let currentStep = 0;
+
+    function renderStep(index) {
+        const existingOverlay = document.getElementById('atlas-onboarding-overlay');
+        if (existingOverlay) existingOverlay.remove();
+
+        if (index >= steps.length) {
+            localStorage.setItem('atlas_onboarding_completed', 'true');
+            fireConfetti();
+            return;
+        }
+
+        const step = steps[index];
+        const element = document.querySelector(step.target);
+        
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'atlas-onboarding-overlay';
+        overlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(2, 10, 25, 0.55); z-index: 99999;
+            display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px);
+            animation: fadeInOverlay 0.3s ease; font-family: 'Montserrat', sans-serif;
+        `;
+
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: var(--glass-bg, #0d1b2e); border: 1px solid var(--glass-border, rgba(197,160,89,0.3));
+            border-top: 4px solid #c5a059; border-radius: 16px; padding: 2rem; width: 90%; max-width: 420px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.6); text-align: center; color: #e2e8f0; position: relative;
+        `;
+
+        // Destaque temporário do elemento focado
+        const originalShadow = element ? element.style.boxShadow : '';
+        const originalTransition = element ? element.style.transition : '';
+        if (element) {
+            element.style.transition = 'box-shadow 0.3s ease';
+            element.style.boxShadow = '0 0 0 5px #c5a059, 0 12px 40px rgba(0,0,0,0.4)';
+        }
+
+        box.innerHTML = `
+            <div style="font-size: 0.7rem; color: #c5a059; font-weight: 700; margin-bottom: 0.6rem; letter-spacing: 2px;">LOG DE BORDO: ${index + 1} / ${steps.length}</div>
+            <h3 style="font-family: 'Cinzel', serif; font-size: 1.2rem; color: #c5a059; margin-bottom: 1rem;">${step.title}</h3>
+            <p style="font-size: 0.85rem; line-height: 1.6; color: #94a3b8; margin-bottom: 1.8rem;">${step.text}</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                ${index > 0 ? `<button id="btn-onb-prev" style="padding: 8px 16px; border: 1px solid rgba(197,160,89,0.3); background: transparent; color: #94a3b8; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">Voltar</button>` : ''}
+                <button id="btn-onb-next" style="padding: 8px 24px; border: none; background: linear-gradient(135deg, #c5a059, #b38f46); color: #0a192f; font-weight: 700; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">
+                    ${index === steps.length - 1 ? 'Iniciar Viagem ⚓' : 'Próximo'}
+                </button>
+            </div>
+            <button id="btn-onb-skip" style="position: absolute; top: 12px; right: 14px; background: transparent; border: none; color: rgba(255,255,255,0.25); cursor: pointer; font-size: 0.75rem;">Pular Tour ✕</button>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const resetElementStyle = () => {
+            if (element) {
+                element.style.boxShadow = originalShadow;
+                element.style.transition = originalTransition;
+            }
+        };
+
+        box.querySelector('#btn-onb-next').addEventListener('click', () => {
+            resetElementStyle();
+            renderStep(index + 1);
+        });
+
+        if (index > 0) {
+            box.querySelector('#btn-onb-prev').addEventListener('click', () => {
+                resetElementStyle();
+                renderStep(index - 1);
+            });
+        }
+
+        box.querySelector('#btn-onb-skip').addEventListener('click', () => {
+            resetElementStyle();
+            localStorage.setItem('atlas_onboarding_completed', 'true');
+            overlay.remove();
+        });
+    }
+
+    renderStep(currentStep);
+}
