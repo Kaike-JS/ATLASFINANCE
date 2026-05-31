@@ -1608,7 +1608,11 @@ export function initAmountMask() {
 export function getRawAmountValue() {
     const amountInput = document.getElementById('amount');
     if (!amountInput) return 0;
-    const cleanStr = amountInput.value.replace(/[R$\s.]/g, '').replace(',', '.');
+
+    const cleanStr = amountInput.value
+        .replace(/[R$\s.]/g, '')
+        .replace(',', '.');
+
     return parseFloat(cleanStr) || 0;
 }
 
