@@ -15,6 +15,13 @@
 // 10. Painel de Metas Financeiras
 // ============================================================
 
+// ── Conexão com o Banco de Dados (Supabase) ──
+const SUPABASE_URL = "https://agazyxktzrkoyrnxivab.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnYXp5eGt0enJrb3lybnhpdmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDU1NzcsImV4cCI6MjA5NTA4MTU3N30.5MZnLVPPTP7VLelU8OX-0cxl6mYz6ck1RoxVH3mPumg";
+
+// Inicializa o cliente aproveitando a biblioteca global do HTML
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ── Paleta de cores do Atlas Finance ──
 const ATLAS = {
     navy:   '#0a192f',
@@ -320,7 +327,130 @@ export function injectTrendChartSection() {
 }
 
 // ============================================================
-//  3. SISTEMA DE ORÇAMENTOS POR CATEGORIA
+//  3. GRÁFICO RADAR — GASTOS VS ORÇAMENTO
+// ============================================================
+
+let radarChartInstance = null;
+
+export function renderRadarChart(transactions) {
+    const container = document.getElementById('radar-chart-container');
+    if (!container) return;
+
+    const budgets = getBudgets();
+    const categories = ['Alimentação', 'Transporte', 'Lazer', 'Contas', 'Salário', 'Outros'];
+    const now = new Date();
+
+    const monthExpenses = {};
+    categories.forEach(c => monthExpenses[c] = 0);
+
+    transactions
+        .filter(t => t.type === 'expense' && t.status !== 'pending')
+        .filter(t => {
+            const d = new Date(t.created_at);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        })
+        .forEach(t => {
+            const cat = categories.includes(t.category) ? t.category : 'Outros';
+            monthExpenses[cat] += t.amount;
+        });
+
+    const labels = categories.filter(c => monthExpenses[c] > 0 || budgets[c] > 0);
+    
+    if (labels.length === 0) {
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;
+                        color:var(--slate-light);font-size:0.85rem;font-family:'Montserrat',sans-serif;text-align:center;">
+                Sem dados suficientes para o gráfico radar no mês atual.
+            </div>`;
+        return;
+    }
+
+    const dataSpent = labels.map(c => monthExpenses[c] || 0);
+    const dataBudget = labels.map(c => budgets[c] || 0);
+
+    const ctx = container.querySelector('canvas')?.getContext('2d');
+    if (!ctx) return;
+
+    if (radarChartInstance) radarChartInstance.destroy();
+
+    radarChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Gastos Atuais',
+                    data: dataSpent,
+                    backgroundColor: 'rgba(230, 57, 70, 0.25)',
+                    borderColor: ATLAS.red,
+                    pointBackgroundColor: ATLAS.red,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: ATLAS.red,
+                    borderWidth: 2,
+                },
+                {
+                    label: 'Orçamento Definido',
+                    data: dataBudget,
+                    backgroundColor: 'rgba(42, 157, 143, 0.25)',
+                    borderColor: ATLAS.teal,
+                    pointBackgroundColor: ATLAS.teal,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: ATLAS.teal,
+                    borderWidth: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { color: 'rgba(197,160,89,0.15)' },
+                    grid: { color: 'rgba(197,160,89,0.15)' },
+                    pointLabels: { 
+                        font: { family: 'Montserrat', size: 10 }, 
+                        color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#94a3b8' : '#475569' 
+                    },
+                    ticks: { display: false }
+                }
+            },
+            plugins: {
+                legend: { 
+                    position: 'bottom', 
+                    labels: { 
+                        color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#94a3b8' : '#475569', 
+                        font: { family: 'Montserrat', size: 11 } 
+                    } 
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(10,25,47,0.95)',
+                    titleColor: '#c5a059',
+                    bodyColor: '#e2e8f0',
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.r.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                    }
+                }
+            }
+        }
+    });
+}
+
+export function injectRadarChartSection() {
+    const budgetPanel = document.getElementById('budget-panel');
+    if (!budgetPanel || document.getElementById('radar-chart-container')) return;
+
+    const chartDiv = document.createElement('div');
+    chartDiv.id = 'radar-chart-container';
+    chartDiv.className = 'chart-container';
+    chartDiv.style.cssText = 'height:260px; position:relative; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-light);';
+    chartDiv.innerHTML = '<canvas></canvas>';
+    budgetPanel.appendChild(chartDiv);
+}
+
+// ============================================================
+//  4. SISTEMA DE ORÇAMENTOS POR CATEGORIA
 // ============================================================
 
 const BUDGET_KEY = 'atlas_budgets';
@@ -338,6 +468,7 @@ function saveBudgets(budgets) {
 export function injectBudgetSection(transactions) {
     if (document.getElementById('budget-panel')) {
         updateBudgetPanel(transactions);
+        renderRadarChart(transactions); // Atualiza o radar
         return;
     }
 
@@ -373,7 +504,10 @@ export function injectBudgetSection(transactions) {
     }
 
     document.getElementById('btn-configure-budgets').addEventListener('click', () => openBudgetModal());
+    
     updateBudgetPanel(transactions);
+    injectRadarChartSection(); // Injeta a div do radar no final do painel de orçamento
+    renderRadarChart(transactions);
 }
 
 function updateBudgetPanel(transactions) {
@@ -544,7 +678,7 @@ function _injectModalStyles() {
 }
 
 // ============================================================
-//  4. IMPORTAÇÃO DE CSV BANCÁRIO
+//  5. IMPORTAÇÃO DE CSV BANCÁRIO
 // ============================================================
 
 export function injectCSVImportButton() {
@@ -813,7 +947,7 @@ function parseCSV(text) {
 }
 
 // ============================================================
-//  5. ATALHOS DE TECLADO
+//  6. ATALHOS DE TECLADO
 // ============================================================
 
 export function initKeyboardShortcuts(callbacks = {}) {
@@ -953,7 +1087,54 @@ function _toggleShortcutsPanel() {
 }
 
 // ============================================================
-//  6. PARTÍCULAS DE CONFETTI NÁUTICO
+//  7. MODO FOCO NO FORMULÁRIO
+// ============================================================
+
+export function initFocusMode() {
+    const formInputs = document.querySelectorAll('.form-section input, .form-section select, .form-section textarea');
+    const formSection = document.querySelector('.form-section');
+    
+    if (!formSection || formInputs.length === 0) return;
+
+    // Cria o overlay esmaecido global
+    const overlay = document.createElement('div');
+    overlay.id = 'atlas-focus-overlay';
+    overlay.style.cssText = `
+        position: fixed; inset: 0; background: rgba(2, 10, 25, 0.65);
+        z-index: 90; opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease; backdrop-filter: blur(3px);
+    `;
+    document.body.appendChild(overlay);
+
+    // Ajusta o formulário para se sobrepor ao overlay
+    formSection.style.position = 'relative';
+    formSection.style.transition = 'transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease, z-index 0s';
+
+    formInputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            overlay.style.opacity = '1';
+            formSection.style.zIndex = '100';
+            formSection.style.transform = 'scale(1.02)';
+            formSection.style.boxShadow = '0 24px 80px rgba(0,0,0,0.4)';
+        });
+        
+        input.addEventListener('blur', () => {
+            // Um pequeno delay garante que se o clique for em outro input do mesmo formulário, não pisque o fundo
+            setTimeout(() => {
+                const active = document.activeElement;
+                if (!formSection.contains(active)) {
+                    overlay.style.opacity = '0';
+                    formSection.style.zIndex = '';
+                    formSection.style.transform = 'scale(1)';
+                    formSection.style.boxShadow = '';
+                }
+            }, 10);
+        });
+    });
+}
+
+// ============================================================
+//  8. PARTÍCULAS DE CONFETTI NÁUTICO
 // ============================================================
 
 export function fireConfetti() {
@@ -995,7 +1176,7 @@ export function fireConfetti() {
 }
 
 // ============================================================
-//  7. SKELETON LOADING
+//  9. SKELETON LOADING
 // ============================================================
 
 export function showTableSkeleton(tbodyId = 'transaction-list', rows = 5) {
@@ -1038,7 +1219,7 @@ export function showTableSkeleton(tbodyId = 'transaction-list', rows = 5) {
 }
 
 // ============================================================
-//  8. PAINEL DE METAS FINANCEIRAS
+//  10. PAINEL DE METAS FINANCEIRAS E EXTRAS
 // ============================================================
 
 const GOALS_KEY = 'atlas_goals';
@@ -1263,10 +1444,6 @@ window._atlasDeleteGoal = function(index) {
     renderGoals();
 };
 
-// ============================================================
-//  9. MINI TOAST INTERNO (sem depender de style.js)
-// ============================================================
-
 function _showMiniToast(msg, type = 'success') {
     // Usa o showToast global se disponível
     if (typeof window.showToast === 'function') {
@@ -1295,10 +1472,6 @@ function _showMiniToast(msg, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 3000);
 }
-
-// ============================================================
-//  10. MICRO-ANIMAÇÕES EXTRAS NA TABELA
-// ============================================================
 
 export function enhanceTableRows() {
     const style = document.createElement('style');
