@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://agazyxktzrkoyrnxivab.supabase.co wss://agazyxktzrkoyrnxivab.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+    <title>Atlas Finance — Diário de Bordo</title>
+        <!-- Adicione estas linhas logo abaixo das tags meta existentes no seu <head> -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Atlas Finance">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js (gráficos no dashboard e no PDF offscreen) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- jsPDF (geração de PDF no frontend) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- SheetJS / xlsx (exportação para Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+ 
+
+    <!-- Pré-carrega os módulos ES para eliminar latência no primeiro import -->
+    <link rel="modulepreload" href="sessionToken.js">
+    <link rel="modulepreload" href="style.js">
+</head>
+<body>
+    <div id="preloader">
+        <div class="preloader-content">
+            <div class="logo-compass preloader-icon" style="font-size: 3rem;">🧭</div>
+            <h1 class="shimmer-text">ATLAS FINANCE</h1>
+        </div>
+    </div>
+
+    <div id="login-view" class="login-wrapper" role="main">
+        <div class="login-card" aria-label="Formulário de login">
+            <div class="logo-compass" aria-hidden="true">🧭</div>
+            <h1 class="login-title">Atlas Finance</h1>
+            <p class="login-subtitle">Identifique-se para acessar seu diário de bordo</p>
+
+            <form id="login-form" novalidate>
+                <div class="input-group">
+                    <label for="username">E-mail do Tripulante</label>
+                    <input type="email" id="username" placeholder="seu-email@exemplo.com" autocomplete="email" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Chave Secreta (Senha)</label>
+                    <input type="password" id="password" placeholder="Sua senha" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-submit">Embarcar</button>
+                <p class="switch-text">Não tem uma conta? <a href="cadastro.html">Cadastre-se aqui</a></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-view" class="hidden">
+        <header role="banner">
+            <div class="header-content">
+                <div class="header-titles">
+                    <div class="logo-compass" aria-hidden="true">🧭</div>
+                    <h1>Atlas Finance</h1>
+                    <p class="subtitle">Navegando com precisão</p>
+                </div>
+                <div class="user-controls">
+                    <span class="greeting">Bem-vindo, <strong id="display-user">Tripulante</strong></span>
+                    <div class="header-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+
+                        <!-- Seletor de mês -->
+                        <select id="select-report-month" class="report-select"
+                            aria-label="Selecionar mês do relatório"
+                            style="padding: 8px 12px; border-radius: 6px; border: 1px solid #2a9d8f;
+                                   background-color: #0a192f; color: #fff;
+                                   font-family: 'Montserrat', sans-serif; cursor: pointer;">
+                            <option value="all">📅 Todo o Histórico</option>
+                            <option value="0">Janeiro</option>
+                            <option value="1">Fevereiro</option>
+                            <option value="2">Março</option>
+                            <option value="3">Abril</option>
+                            <option value="4">Maio</option>
+                            <option value="5">Junho</option>
+                            <option value="6">Julho</option>
+                            <option value="7">Agosto</option>
+                            <option value="8">Setembro</option>
+                            <option value="9">Outubro</option>
+                            <option value="10">Novembro</option>
+                            <option value="11">Dezembro</option>
+                        </select>
+
+                        <!-- Baixar PDF localmente -->
+                        <button id="btn-download-pdf"
+                                onclick="downloadReportPDF()"
+                                aria-label="Baixar relatório em PDF"
+                                style="padding: 8px 14px; border-radius: 6px;
+                                       border: 1px solid #c5a059; background-color: #0a192f;
+                                       color: #c5a059; font-family: 'Montserrat', sans-serif;
+                                       font-size: 0.8rem; font-weight: 600; cursor: pointer;
+                                       transition: all 0.2s ease;"
+                                onmouseover="this.style.background='#c5a059';this.style.color='#0a192f';"
+                                onmouseout="this.style.background='#0a192f';this.style.color='#c5a059';">
+                            📄 Baixar PDF
+                        </button>
+
+                        <!-- Exportar Excel -->
+                        <button id="btn-export-excel"
+                                onclick="exportToExcel()"
+                                aria-label="Exportar para Excel"
+                                style="padding: 8px 14px; border-radius: 6px;
+                                       border: 1px solid #2a9d8f; background-color: #0a192f;
+                                       color: #2a9d8f; font-family: 'Montserrat', sans-serif;
+                                       font-size: 0.8rem; font-weight: 600; cursor: pointer;
+                                       transition: all 0.2s ease;"
+                                onmouseover="this.style.background='#2a9d8f';this.style.color='#fff';"
+                                onmouseout="this.style.background='#0a192f';this.style.color='#2a9d8f';">
+                            📊 Baixar Excel
+                        </button>
+
+                        <button onclick="logout()" class="btn-logout" aria-label="Sair da conta">
+                            Desembarcar (Sair)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div id="alerts-container" class="container hidden" aria-live="polite">
+    </div>
+
+       <main class="container" role="main">
+            <div class="summary-cards" role="region" aria-label="Resumo financeiro">
+                <article class="card income">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Entradas</h3>
+                    <p id="total-income" aria-live="polite">R$ 0,00</p>
+                </article>
+                <article class="card expense">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Saídas</h3>
+                    <p id="total-expense" aria-live="polite">R$ 0,00</p>
+                </article>
+                <article class="card balance">
+                    <div class="card-indicator" aria-hidden="true"></div>
+                    <h3>Saldo de Bordo</h3>
+                    <p id="total-balance" aria-live="polite">R$ 0,00</p>
+                    
+                    <div id="future-balance-container" class="future-balance-hidden">
+                        <span>⏳ Previsto:</span>
+                        <strong id="future-balance-value">R$ 0,00</strong>
+                    </div>
+                </article>
+            </div>
+
+            <div id="smart-insights" class="insights-container hidden">
+                <div class="insight-card">
+                    <span class="insight-icon">🚨</span>
+                    <div class="insight-info">
+                        <h4>Maior Despesa</h4>
+                        <p id="insight-highest-expense">---</p>
+                    </div>
+                </div>
+                <div class="insight-card">
+                    <span class="insight-icon">📊</span>
+                    <div class="insight-info">
+                        <h4>Média Diária</h4>
+                        <p id="insight-daily-avg">---</p>
+                    </div>
+                </div>
+                <div class="insight-card">
+                    <span class="insight-icon">🎯</span>
+                    <div class="insight-info">
+                        <h4>Categoria Vilã</h4>
+                        <p id="insight-worst-category">---</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <section class="form-section" aria-label="Registrar transação">
+                    <h2>Registrar Rota</h2>
+<form id="transaction-form" novalidate>
+    <div class="input-row">
+        <div class="input-group">
+            <label for="desc">Descrição do Lançamento</label>
+            <input type="text" id="desc" placeholder="Ex: Assinatura Cloud" required>
+        </div>
+        <div class="input-group">
+            <label for="amount">Valor (R$)</label>
+            <input type="number" id="amount" step="0.01" placeholder="0,00" required>
+        </div>
+    </div>
+
+    <div class="input-row">
+        <div class="input-group">
+            <label for="type">Natureza do Fluxo</label>
+            <select id="type" required>
+                <option value="income">⚓ Entrada (Receita)</option>
+                <option value="expense">🌊 Saída (Despesa)</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="category">Categoria</label>
+            <select id="category" required>
+                <option value="Alimentação">Alimentação</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Lazer">Lazer</option>
+                <option value="Contas">Contas</option>
+                <option value="Salário">Salário</option>
+                <option value="Outros">Outros</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="input-group status-group" style="margin-bottom: 1.2rem;">
+        <label style="margin-bottom: 0.5rem; display: block;">Situação do Registro</label>
+        <div class="status-options" style="display: flex; gap: 1.5rem; align-items: center; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--text-dark);">
+            <label class="status-option status-paid" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                <input type="radio" name="status" value="paid" checked onchange="toggleFutureFields()">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span>Realizada (Paga/Recebida)</span>
+            </label>
+            <label class="status-option status-pending" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                <input type="radio" name="status" value="pending" onchange="toggleFutureFields()">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span>Pendente (A Vencer)</span>
+            </label>
+        </div>
+    </div>
+
+    <div id="future-fields" class="input-row" style="display: none; border-top: 1px dashed var(--gold-brass); padding-top: 1rem; margin-top: 0.5rem;">
+        <div class="input-group">
+            <label for="due-date">Data de Vencimento</label>
+            <input type="date" id="due-date">
+        </div>
+        <div class="input-group">
+            <label for="recurrence">Frequência / Recorrência</label>
+            <select id="recurrence" onchange="toggleInstallmentField()">
+                <option value="unique">Lançamento Único</option>
+                <option value="fixed">Fixo Mensal</option>
+                <option value="installment">Parcelado</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="installment-group" class="input-row" style="display: none;">
+        <div class="input-group">
+            <label for="installments-total">Quantidade de Parcelas</label>
+            <input type="number" id="installments-total" min="1" max="72" value="1" placeholder="Ex: 12">
+        </div>
+        <div class="input-group" style="visibility: hidden;">
+            <label>&nbsp;</label>
+        </div>
+    </div>
+
+    <div class="input-group" style="margin-top: 0.5rem;">
+        <label for="observation">Diário de Bordo (Observações Opcionais)</label>
+        <textarea id="observation" rows="2" placeholder="Notas sobre a rota financeira..."></textarea>
+    </div>
+
+    <button type="submit" class="btn-submit">Lançar no Diário</button>
+</form>
+                </section>
+
+                <section class="dashboard-section" aria-label="Gráfico de gastos">
+                    <h2>Distribuição dos Gastos</h2>
+                    <div class="chart-container">
+                        <canvas id="expenseChart" aria-label="Gráfico de distribuição de gastos"></canvas>
+                    </div>
+                </section>
+            </div>
+
+           <section class="history-section" aria-label="Histórico de transações">
+                <div class="history-header">
+                    <h2>Histórico de Navegabilidade</h2>
+                    <div class="search-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="search-input" placeholder="Buscar por descrição ou categoria..." aria-label="Buscar transações">
+                    </div>
+                </div>
+                
+                <div class="table-wrapper">
+                    <table id="transaction-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Descrição</th>
+                                <th scope="col">Categoria</th>
+                                <th scope="col">Valor</th>
+                                <th scope="col">Natureza</th>
+                                <th scope="col" style="text-align:center">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-list"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!--
+        script.js importa sessionToken.js, style.js e security.js como ES Modules.
+    -->
+    <script type="module" src="script.js"></script>
+
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const preloader = document.getElementById('preloader');
+                if (preloader) {
+                    preloader.classList.add('preloader-hidden');
+                    setTimeout(() => preloader.remove(), 600);
+                }
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
